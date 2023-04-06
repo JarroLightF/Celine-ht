@@ -3,8 +3,7 @@
 # Manually managing azure-functions-worker may cause unexpected issues
 
 azure-functions
-base64
 PyPDF2
-io
-reportlab
+logging
+jsonschema
 reportlab
