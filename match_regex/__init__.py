@@ -31,12 +31,11 @@ def has_valid_schema(payload):
     return True
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
-    logging.info('Python HTTP trigger function processed a request.')
     try:
         payload = req.get_json()
     except:
         return func.HttpResponse(
-            json.dumps({"message": "Bad request. Not a JSON file"}),
+            json.dumps({"message": "Bad request. Not JSON data"}),
             status_code= 400,
             mimetype="application/json",
             charset='utf-8',

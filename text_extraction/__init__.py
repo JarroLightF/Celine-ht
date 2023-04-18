@@ -19,64 +19,14 @@ payload_schema = {
             },
             "content": {
                 "type": "string"
-            },
-            "watermark": {
-                "type": "string"
             }
         },
         "required": [
             "id",
-            "content",
-            "watermark"
+            "content"
         ]
     }
 }
-
-
-def create_overlay_page(watermark):
-    watermark_y = 740
-    watermark_x = 570
-    overlay_page = io.BytesIO()
-    temp_pdf = canvas.Canvas(overlay_page, pagesize=letter)
-    temp_pdf.setFont("Helvetica", 20)
-    temp_pdf.drawRightString(watermark_x, watermark_y, watermark)
-    temp_pdf.save()
-    overlay_page.seek(0)
-    return overlay_page
-
-
-def print_watermark(list_of_documents):
-
-    for d in list_of_documents:
-        document = d["item"]
-        try:
-            overlay_page = create_overlay_page(document["watermark"])
-            new_pdf = PdfReader(overlay_page)
-            output_pdf = PdfWriter()
-            original_pdf = base64.decodebytes(
-                document["content"].encode('ascii'))
-            original_pdf = PdfReader(io.BytesIO(original_pdf))
-            first_page = original_pdf.pages[0]
-            page_to_extract = original_pdf.pages[0]
-            first_page.merge_page(new_pdf.pages[0])
-            output_pdf.add_page(first_page)
-            for p in range(1, len(original_pdf.pages)):
-                output_pdf.add_page(original_pdf.pages[p])
-            tempMemory = io.BytesIO()
-            output_pdf.write(tempMemory)
-            newFileData = tempMemory.getvalue()
-            newEncodedPDF = base64.b64encode(newFileData)
-            document["content"] = newEncodedPDF.decode()
-            document["text"] = page_to_extract.extract_text()
-            d["item"] = document
-            d["statusCode"] = 201
-            d["message"] = "Watermark applied."
-        except:
-            d["statusCode"] = 500
-            d["message"] = "Failed to apply watermark."
-
-    return list_of_documents
-
 
 def is_base64(sb):
     try:
@@ -109,14 +59,6 @@ def validate_documents(list_of_documents):
     return out_list
 
 
-def is_json(payload):
-    try:
-        json.loads(payload)
-    except ValueError as err:
-        return False
-    return True
-
-
 def has_valid_schema(payload):
     try:
         validate(instance=payload, schema=payload_schema)
@@ -126,7 +68,7 @@ def has_valid_schema(payload):
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
-
+    
     try:
         payload = req.get_json()
     except:
@@ -138,13 +80,28 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         )
 
     if has_valid_schema(payload):
+        out_array = []
+        full_extracted_text = ""
         list_of_documents = validate_documents(payload)
-        list_of_documents = print_watermark(list_of_documents)
+        print(list_of_documents[0])
+        for item in payload:
+            original_pdf = base64.decodebytes(
+                item["content"].encode('ascii'))
+            original_pdf = PdfReader(io.BytesIO(original_pdf))
+            for page in original_pdf.pages:
+                full_extracted_text = full_extracted_text + page.extract_text()
+            out_array.append(
+                {
+                    "id":                       item["id"],
+                    "content":                  item["content"],
+                    "EXTRACTED_TEXT":           full_extracted_text
+                }
+            )
         return func.HttpResponse(
-            json.dumps(list_of_documents),
+            json.dumps(out_array),
             status_code=200,
             mimetype="application/json",
-            charset='utf-8',
+            charset='utf-8'
         )
     else:
         return func.HttpResponse(
@@ -153,3 +110,4 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             mimetype="application/json",
             charset='utf-8',
         )
+
