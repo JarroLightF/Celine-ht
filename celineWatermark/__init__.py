@@ -42,7 +42,6 @@ def create_overlay_page(watermark):
     temp_pdf.drawRightString(watermark_x, watermark_y, watermark)
     temp_pdf.save()
     overlay_page.seek(0)
-    print(temp_pdf.getAvailableFonts)
     return overlay_page
 
 
@@ -58,6 +57,7 @@ def print_watermark(list_of_documents):
                 document["content"].encode('ascii'))
             original_pdf = PdfReader(io.BytesIO(original_pdf))
             first_page = original_pdf.pages[0]
+            page_to_extract = original_pdf.pages[0]
             first_page.merge_page(new_pdf.pages[0])
             output_pdf.add_page(first_page)
             for p in range(1, len(original_pdf.pages)):
@@ -67,6 +67,7 @@ def print_watermark(list_of_documents):
             newFileData = tempMemory.getvalue()
             newEncodedPDF = base64.b64encode(newFileData)
             document["content"] = newEncodedPDF.decode()
+            document["text"] = page_to_extract.extract_text()
             d["item"] = document
             d["statusCode"] = 201
             d["message"] = "Watermark applied."
