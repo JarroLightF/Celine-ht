@@ -9,17 +9,25 @@ from jsonschema import validate
 import re
 
 payload_schema = {
-    "type": "array",
-    "items":{
-        "type": "object",
-        "properties": {
-            "STRING_TO_CHECK": {"type": "string"},
-            "PATTERN": {"type":"string"}
+  "type": "array",
+  "items": {
+      "type": "object",
+      "properties": {
+        "STRING_TO_CHECK": {
+          "type": "string"
         },
-        "required":[
-            "STRING_TO_CHECK",
-            "PATTERN"
-        ]
+        "PATTERNS": {
+          "type": "array",
+          "items": 
+            {
+              "type": "string"
+            }
+        }
+      },
+      "required": [
+        "STRING_TO_CHECK",
+        "PATTERNS"
+      ]
     }
 }
 
@@ -44,13 +52,38 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     out_array = []
     if has_valid_schema(payload):
         for item in payload:
-            out_array.append(
-                {
-                    "STRING_TO_CHECK": item["STRING_TO_CHECK"],
-                    "PATTERN":         item["PATTERN"],
-                    "IS_MATCH":        bool(re.match(item["PATTERN"], item["STRING_TO_CHECK"]))
-                }
-            )
+            temp = '(?:% s)' % '|'.join(item["PATTERNS"])
+            res = False
+            try:
+                re.compile(temp)
+                if re.match(temp, item["STRING_TO_CHECK"]):
+                    res = True
+                    matching_regex = temp
+                    out_array.append(
+                        {
+                            "STRING_TO_CHECK": item["STRING_TO_CHECK"],
+                            "PATTERNS":        matching_regex,
+                            "IS_MATCH":        res
+                        }
+                    )
+                else:
+                    out_array.append(
+                        {
+                            "STRING_TO_CHECK": item["STRING_TO_CHECK"],
+                            "PATTERNS":        temp,
+                            "IS_MATCH":        False
+                        }
+                    )
+            except re.error:
+                return func.HttpResponse(
+                    json.dumps({"message": "Invalid Pattern"}),
+                    status_code=400,
+                    mimetype="application/json",
+                    charset='utf-8',
+                )
+            
+                
+            
         return func.HttpResponse(
             json.dumps(out_array),
             status_code=200,
