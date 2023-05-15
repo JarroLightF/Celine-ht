@@ -1,4 +1,3 @@
-import logging
 import json
 import azure.functions as func
 import io
@@ -82,18 +81,14 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     if has_valid_schema(payload):
         out_array = []
         full_extracted_text = ""
-        list_of_documents = validate_documents(payload)
-        print(list_of_documents[0])
         for item in payload:
-            original_pdf = base64.decodebytes(
-                item["content"].encode('ascii'))
+            original_pdf = base64.decodebytes(item["content"].encode('ascii'))
             original_pdf = PdfReader(io.BytesIO(original_pdf))
             for page in original_pdf.pages:
                 full_extracted_text = full_extracted_text + page.extract_text()
+            out_array.append(item)
             out_array.append(
                 {
-                    "id":                       item["id"],
-                    "content":                  item["content"],
                     "EXTRACTED_TEXT":           full_extracted_text
                 }
             )

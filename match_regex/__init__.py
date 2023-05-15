@@ -56,34 +56,17 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             res = False
             try:
                 re.compile(temp)
-                if re.match(temp, item["STRING_TO_CHECK"]):
-                    res = True
-                    matching_regex = temp
-                    out_array.append(
-                        {
-                            "STRING_TO_CHECK": item["STRING_TO_CHECK"],
-                            "PATTERNS":        matching_regex,
-                            "IS_MATCH":        res
-                        }
-                    )
-                else:
-                    out_array.append(
-                        {
-                            "STRING_TO_CHECK": item["STRING_TO_CHECK"],
-                            "PATTERNS":        temp,
-                            "IS_MATCH":        False
-                        }
-                    )
+                res = bool(re.match(temp, item["STRING_TO_CHECK"]))
+                item["IS_MATCH"] = res
+                item["STATUS_CODE"] = 201
+                newItem = item
+                out_array.append(newItem)
             except re.error:
-                return func.HttpResponse(
-                    json.dumps({"message": "Invalid Pattern"}),
-                    status_code=400,
-                    mimetype="application/json",
-                    charset='utf-8',
-                )
-            
-                
-            
+                out_array = newItem
+                item["IS_MATCH"] = False
+                item["STATUS_CODE"] = 500
+                newItem = item
+                out_array.append(newItem)
         return func.HttpResponse(
             json.dumps(out_array),
             status_code=200,
