@@ -1,4 +1,3 @@
-import logging
 import json
 import azure.functions as func
 import io
@@ -14,22 +13,12 @@ payload_schema = {
     "items": {
         "type": "object",
         "properties": {
-            "id": {
-                "type": "integer"
-            },
-            "content": {
-                "type": "string"
-            },
-            "watermark": {
-                "type": "string"
-            }
+            "id": {"type": "integer"},
+            "content": {"type": "string"},
+            "watermark": {"type": "string"},
         },
-        "required": [
-            "id",
-            "content",
-            "watermark"
-        ]
-    }
+        "required": ["id", "content", "watermark"],
+    },
 }
 
 
@@ -46,15 +35,13 @@ def create_overlay_page(watermark):
 
 
 def print_watermark(list_of_documents):
-
     for d in list_of_documents:
         document = d["item"]
         try:
             overlay_page = create_overlay_page(document["watermark"])
             new_pdf = PdfReader(overlay_page)
             output_pdf = PdfWriter()
-            original_pdf = base64.decodebytes(
-                document["content"].encode('ascii'))
+            original_pdf = base64.decodebytes(document["content"].encode("ascii"))
             original_pdf = PdfReader(io.BytesIO(original_pdf))
             first_page = original_pdf.pages[0]
             page_to_extract = original_pdf.pages[0]
@@ -81,7 +68,7 @@ def print_watermark(list_of_documents):
 def is_base64(sb):
     try:
         if isinstance(sb, str):
-            sb_bytes = bytes(sb, 'ascii')
+            sb_bytes = bytes(sb, "ascii")
         elif isinstance(sb, bytes):
             sb_bytes = sb
         else:
@@ -102,8 +89,10 @@ def validate_documents(list_of_documents):
         out_list.append(
             {
                 "statusCode": 201 if is_valid_base_64 else 400,
-                "message":  "Updated" if is_valid_base_64 else "Not a valid base64 string.",
-                "item": document
+                "message": "Updated"
+                if is_valid_base_64
+                else "Not a valid base64 string.",
+                "item": document,
             }
         )
     return out_list
@@ -126,15 +115,14 @@ def has_valid_schema(payload):
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
-
     try:
         payload = req.get_json()
     except:
         return func.HttpResponse(
             json.dumps({"message": "Bad request. Not JSON data"}),
-            status_code= 400,
+            status_code=400,
             mimetype="application/json",
-            charset='utf-8',
+            charset="utf-8",
         )
 
     if has_valid_schema(payload):
@@ -144,12 +132,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             json.dumps(list_of_documents),
             status_code=200,
             mimetype="application/json",
-            charset='utf-8',
+            charset="utf-8",
         )
     else:
         return func.HttpResponse(
             json.dumps({"message": "Bad request. Invalid schema."}),
             status_code=400,
             mimetype="application/json",
-            charset='utf-8',
+            charset="utf-8",
         )
