@@ -9,16 +9,35 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 
 payload_schema = {
-    "type": "array",
-    "items": {
-        "type": "object",
-        "properties": {
-            "id": {"type": "integer"},
-            "content": {"type": "string"},
-            "watermark": {"type": "string"},
-        },
-        "required": ["id", "content", "watermark"],
+  "type": "object",
+  "properties": {
+    "LAST_USED_PROTOCOL": {
+      "type": "integer"
     },
+    "ITEMS": {
+      "type": "array",
+      "items": 
+        {
+          "type": "object",
+          "properties": {
+            "ID": {
+              "type": "integer"
+            },
+            "CONTENT": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "ID",
+            "CONTENT"
+          ]
+        }
+    }
+  },
+  "required": [
+    "LAST_USED_PROTOCOL",
+    "ITEMS"
+  ]
 }
 
 
@@ -28,23 +47,24 @@ def create_overlay_page(watermark):
     overlay_page = io.BytesIO()
     temp_pdf = canvas.Canvas(overlay_page, pagesize=letter)
     temp_pdf.setFont("Helvetica", 20)
-    temp_pdf.drawRightString(watermark_x, watermark_y, watermark)
+    temp_pdf.drawRightString(watermark_x, watermark_y, str(watermark))
     temp_pdf.save()
     overlay_page.seek(0)
     return overlay_page
 
 
-def print_watermark(list_of_documents):
+def print_watermark(list_of_documents, last_used_protocol):
+    protocol = last_used_protocol
     for d in list_of_documents:
-        document = d["item"]
         try:
-            overlay_page = create_overlay_page(document["watermark"])
+            document = d["item"]
+            protocol = protocol + 1
+            overlay_page = create_overlay_page(protocol)
             new_pdf = PdfReader(overlay_page)
             output_pdf = PdfWriter()
-            original_pdf = base64.decodebytes(document["content"].encode("ascii"))
+            original_pdf = base64.decodebytes(document["CONTENT"].encode("ascii"))
             original_pdf = PdfReader(io.BytesIO(original_pdf))
             first_page = original_pdf.pages[0]
-            page_to_extract = original_pdf.pages[0]
             first_page.merge_page(new_pdf.pages[0])
             output_pdf.add_page(first_page)
             for p in range(1, len(original_pdf.pages)):
@@ -53,12 +73,12 @@ def print_watermark(list_of_documents):
             output_pdf.write(tempMemory)
             newFileData = tempMemory.getvalue()
             newEncodedPDF = base64.b64encode(newFileData)
-            document["content"] = newEncodedPDF.decode()
-            document["text"] = page_to_extract.extract_text()
+            document["CONTENT"] = newEncodedPDF.decode()
             d["item"] = document
             d["statusCode"] = 201
             d["message"] = "Watermark applied."
         except:
+            protocol = protocol - 1
             d["statusCode"] = 500
             d["message"] = "Failed to apply watermark."
 
@@ -79,7 +99,7 @@ def is_base64(sb):
 
 
 def validate_document(document):
-    return is_base64(document["content"])
+    return is_base64(document["CONTENT"])
 
 
 def validate_documents(list_of_documents):
@@ -126,8 +146,8 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         )
 
     if has_valid_schema(payload):
-        list_of_documents = validate_documents(payload)
-        list_of_documents = print_watermark(list_of_documents)
+        list_of_documents = validate_documents(payload["ITEMS"])
+        list_of_documents = print_watermark(list_of_documents, payload["LAST_USED_PROTOCOL"])
         return func.HttpResponse(
             json.dumps(list_of_documents),
             status_code=200,
