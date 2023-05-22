@@ -74,11 +74,13 @@ def print_watermark(list_of_documents, last_used_protocol):
             newFileData = tempMemory.getvalue()
             newEncodedPDF = base64.b64encode(newFileData)
             document["CONTENT"] = newEncodedPDF.decode()
+            document["PROTOCOL"] = protocol
             d["item"] = document
             d["statusCode"] = 201
             d["message"] = "Watermark applied."
         except:
             protocol = protocol - 1
+            document["PROTOCOL"] = None
             d["statusCode"] = 500
             d["message"] = "Failed to apply watermark."
 
