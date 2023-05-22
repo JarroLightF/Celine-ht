@@ -75,11 +75,15 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         for item in payload:
             full_extracted_text = ""
             original_pdf = base64.decodebytes(item["CONTENT"].encode("ascii"))
-            original_pdf = PdfReader(io.BytesIO(original_pdf))
-            for page in original_pdf.pages:
-                full_extracted_text = full_extracted_text + page.extract_text()
-            item["EXTRACTED_TEXT"] = full_extracted_text
-            out_array.append(item)
+            if len(item["CONTENT"].encode("ascii"))>0:
+                original_pdf = PdfReader(io.BytesIO(original_pdf))
+                for page in original_pdf.pages:
+                    full_extracted_text = full_extracted_text + page.extract_text()
+                item["EXTRACTED_TEXT"] = full_extracted_text
+                out_array.append(item)
+            else:
+                item["EXTRACTED_TEXT"] = ""
+                out_array.append(item)
         return func.HttpResponse(
             json.dumps(out_array),
             status_code=200,
