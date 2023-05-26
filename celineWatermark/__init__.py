@@ -59,7 +59,7 @@ def print_watermark(list_of_documents, last_used_protocol):
         try:
             document = d["item"]
             protocol = protocol + 1
-            overlay_page = create_overlay_page(protocol)
+            overlay_page = create_overlay_page(document["PROTOCOL"] or protocol)
             new_pdf = PdfReader(overlay_page)
             output_pdf = PdfWriter()
             original_pdf = base64.decodebytes(document["CONTENT"].encode("ascii"))
@@ -74,13 +74,12 @@ def print_watermark(list_of_documents, last_used_protocol):
             newFileData = tempMemory.getvalue()
             newEncodedPDF = base64.b64encode(newFileData)
             document["CONTENT"] = newEncodedPDF.decode()
-            document["PROTOCOL"] = protocol
+            document["PROTOCOL"] = document["PROTOCOL"] or protocol
             d["item"] = document
             d["statusCode"] = 201
             d["message"] = "Watermark applied."
         except:
             protocol = protocol - 1
-            document["PROTOCOL"] = None
             d["statusCode"] = 500
             d["message"] = "Failed to apply watermark."
 
