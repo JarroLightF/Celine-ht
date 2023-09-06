@@ -99,23 +99,26 @@ is_intra_payload_schema = {
 }
 
 
-def create_overlay_page(watermark):
+def create_overlay_page(watermark, is_intra):
     watermark_y = 740
     watermark_x = 570
     overlay_page = io.BytesIO()
     temp_pdf = canvas.Canvas(overlay_page, pagesize=letter)
     temp_pdf.setFont("Helvetica", 20)
-    temp_pdf.drawRightString(watermark_x, watermark_y, str(watermark))
+    if is_intra:
+        temp_pdf.drawRightString(watermark_x, watermark_y, "A" + str(watermark))
+    else:
+        temp_pdf.drawRightString(watermark_x, watermark_y, str(watermark))
     temp_pdf.save()
     overlay_page.seek(0)
     return overlay_page
 
-def create_is_intra_overlay(watermark, VAT, TAX, DOC):
-    VAT_y = 740
+def create_is_intra_overlay(VAT, TAX, DOC):
+    VAT_y = 730
     VAT_x = 570
-    TAX_y = 740
+    TAX_y = 750
     TAX_x = 570
-    DOC_y = 740
+    DOC_y = 770
     DOC_x = 570
     overlay_page = io.BytesIO()
     temp_pdf = canvas.Canvas(overlay_page, pagesize=letter)
@@ -123,9 +126,6 @@ def create_is_intra_overlay(watermark, VAT, TAX, DOC):
     temp_pdf.drawRightString(VAT_x, VAT_y, str(VAT))
     temp_pdf.drawRightString(TAX_x, TAX_y, str(TAX))
     temp_pdf.drawRightString(DOC_x, DOC_y, str(DOC))
-    watermark_y = 740
-    watermark_x = 570
-    temp_pdf.drawRightString(watermark_x, watermark_y, "A" + str(watermark))
     temp_pdf.save()
     overlay_page.seek(0)
     return overlay_page
@@ -138,19 +138,26 @@ def print_watermark(list_of_documents, last_used_protocol, is_intra):
             document = d["item"]
             protocol = protocol + 1
             if is_intra:
-                print("here3")
-                overlay_page = create_is_intra_overlay(document["PROTOCOL"] or protocol, document["VAT_AMOUNT"], document["TAXABLE_AMOUNT"], document["DOC_AMOUNT"])
-            else:
-                overlay_page = create_overlay_page(document["PROTOCOL"] or protocol)
+                is_intra_overlay_page = create_is_intra_overlay(document["VAT_AMOUNT"], document["TAXABLE_AMOUNT"], document["DOC_AMOUNT"])
+            
+            overlay_page = create_overlay_page(document["PROTOCOL"] or protocol, is_intra)
             new_pdf = PdfReader(overlay_page)
+            if is_intra:
+              new_is_intra_pdf = PdfReader(is_intra_overlay_page)
             output_pdf = PdfWriter()
             original_pdf = base64.decodebytes(document["CONTENT"].encode("ascii"))
             original_pdf = PdfReader(io.BytesIO(original_pdf))
             first_page = original_pdf.pages[0]
+            if is_intra:
+              last_page = original_pdf.pages[len(original_pdf.pages)-1]
             first_page.merge_page(new_pdf.pages[0])
+            if is_intra:
+              last_page.merge_page(new_is_intra_pdf.pages[0])
             output_pdf.add_page(first_page)
-            for p in range(1, len(original_pdf.pages)):
+            for p in range(1, len(original_pdf.pages)-1 if is_intra else len(original_pdf.pages)):
                 output_pdf.add_page(original_pdf.pages[p])
+            if is_intra:
+              output_pdf.add_page(last_page)
             tempMemory = io.BytesIO()
             output_pdf.write(tempMemory)
             newFileData = tempMemory.getvalue()
@@ -230,7 +237,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             mimetype="application/json",
             charset="utf-8",
         )
-
     if has_valid_schema(payload, payload["IS_INTRA"]):
         list_of_documents = validate_documents(payload["ITEMS"])
         list_of_documents = print_watermark(list_of_documents, payload["LAST_USED_PROTOCOL"], payload["IS_INTRA"])
