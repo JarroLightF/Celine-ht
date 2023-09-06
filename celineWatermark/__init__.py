@@ -69,13 +69,13 @@ is_intra_payload_schema = {
                 "type": ["string", "null"]
             },
             "VAT_AMOUNT":{
-                "type": "string"
+                "type": "number"
             },
             "DOC_AMOUNT":{
-                "type": "string"
+                "type": "number"
             },
             "TAXABLE_AMOUNT":{
-                "type": "string"
+                "type": "number"
             }
           },
           "required": [
@@ -89,12 +89,20 @@ is_intra_payload_schema = {
     },
     "IS_INTRA": {
       "type": "boolean"
+    },
+    "CURRENCY_SYMBOL": {
+      "type": "string"
+    },
+    "INTRA_VAT_PERC": {
+      "type": "number"
     }
   },
   "required": [
     "LAST_USED_PROTOCOL",
     "ITEMS",
-    "IS_INTRA"
+    "IS_INTRA",
+    "CURRENCY_SYMBOL",
+    "INTRA_VAT_PERC"
   ]
 }
 
@@ -113,33 +121,40 @@ def create_overlay_page(watermark, is_intra):
     overlay_page.seek(0)
     return overlay_page
 
-def create_is_intra_overlay(VAT, TAX, DOC):
-    VAT_y = 730
-    VAT_x = 570
-    TAX_y = 750
-    TAX_x = 570
-    DOC_y = 770
-    DOC_x = 570
+def replace_last(string, old, new):
+    if old not in string:
+        return string
+
+    index = string.rfind(old)
+
+    return string[:index] + new + string[index+len(old):]
+
+def create_is_intra_overlay(VAT, TAX, DOC, currency, vat_perc):
+    TAX_y = 210
+    TAX_x = 560
+    VAT_y = 190
+    VAT_x = 560
+    DOC_y = 170
+    DOC_x = 560
     overlay_page = io.BytesIO()
     temp_pdf = canvas.Canvas(overlay_page, pagesize=letter)
-    temp_pdf.setFont("Helvetica", 20)
-    temp_pdf.drawRightString(VAT_x, VAT_y, str(VAT))
-    temp_pdf.drawRightString(TAX_x, TAX_y, str(TAX))
-    temp_pdf.drawRightString(DOC_x, DOC_y, str(DOC))
+    temp_pdf.setFont("Helvetica", 10)
+    temp_pdf.drawRightString(TAX_x, TAX_y, "Taxable amt: " + str(replace_last('{:,.2f}'.format(TAX).replace(',','.'), ".", ",")) + " " + str(currency))
+    temp_pdf.drawRightString(VAT_x, VAT_y, "VAT (" + str(int(vat_perc*100)) + "%): " + str(replace_last('{:,.2f}'.format(VAT).replace(',','.'), ".", ",")) + " " + str(currency))
+    temp_pdf.drawRightString(DOC_x, DOC_y, "Total: " + str(replace_last('{:,.2f}'.format(DOC).replace(',','.'), ".", ",")) + " " + str(currency))
     temp_pdf.save()
     overlay_page.seek(0)
     return overlay_page
 
 
-def print_watermark(list_of_documents, last_used_protocol, is_intra):
+def print_watermark(list_of_documents, last_used_protocol, is_intra, currency, vat_perc):
     protocol = last_used_protocol
     for d in list_of_documents:
         try:
             document = d["item"]
             protocol = protocol + 1
             if is_intra:
-                is_intra_overlay_page = create_is_intra_overlay(document["VAT_AMOUNT"], document["TAXABLE_AMOUNT"], document["DOC_AMOUNT"])
-            
+                is_intra_overlay_page = create_is_intra_overlay(document["VAT_AMOUNT"], document["TAXABLE_AMOUNT"], document["DOC_AMOUNT"], currency, vat_perc)
             overlay_page = create_overlay_page(document["PROTOCOL"] or protocol, is_intra)
             new_pdf = PdfReader(overlay_page)
             if is_intra:
@@ -239,7 +254,10 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         )
     if has_valid_schema(payload, payload["IS_INTRA"]):
         list_of_documents = validate_documents(payload["ITEMS"])
-        list_of_documents = print_watermark(list_of_documents, payload["LAST_USED_PROTOCOL"], payload["IS_INTRA"])
+        if payload["IS_INTRA"]:
+          list_of_documents = print_watermark(list_of_documents, payload["LAST_USED_PROTOCOL"], payload["IS_INTRA"], payload["CURRENCY_SYMBOL"], payload["INTRA_VAT_PERC"],)
+        else:
+          list_of_documents = print_watermark(list_of_documents, payload["LAST_USED_PROTOCOL"], payload["IS_INTRA"], "", "")
         return func.HttpResponse(
             json.dumps(list_of_documents),
             status_code=200,
