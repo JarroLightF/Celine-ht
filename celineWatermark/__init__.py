@@ -69,13 +69,13 @@ is_intra_payload_schema = {
                 "type": ["string", "null"]
             },
             "VAT_AMOUNT":{
-                "type": "number"
+                "type": ["number", "null"]
             },
             "DOC_AMOUNT":{
-                "type": "number"
+                "type": ["number", "null"]
             },
             "TAXABLE_AMOUNT":{
-                "type": "number"
+                "type": ["number", "null"]
             }
           },
           "required": [
@@ -154,7 +154,7 @@ def print_watermark(list_of_documents, last_used_protocol, is_intra, currency, v
             document = d["item"]
             protocol = protocol + 1
             if is_intra:
-                is_intra_overlay_page = create_is_intra_overlay(document["VAT_AMOUNT"], document["TAXABLE_AMOUNT"], document["DOC_AMOUNT"], currency, vat_perc)
+                is_intra_overlay_page = create_is_intra_overlay(document["VAT_AMOUNT"] or 0, document["TAXABLE_AMOUNT"] or 0, document["DOC_AMOUNT"] or 0, currency, vat_perc)
             overlay_page = create_overlay_page(document["PROTOCOL"] or protocol, is_intra)
             new_pdf = PdfReader(overlay_page)
             if is_intra:
@@ -255,7 +255,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     if has_valid_schema(payload, payload["IS_INTRA"]):
         list_of_documents = validate_documents(payload["ITEMS"])
         if payload["IS_INTRA"]:
-          list_of_documents = print_watermark(list_of_documents, payload["LAST_USED_PROTOCOL"], payload["IS_INTRA"], payload["CURRENCY_SYMBOL"], payload["INTRA_VAT_PERC"],)
+          list_of_documents = print_watermark(list_of_documents, payload["LAST_USED_PROTOCOL"], payload["IS_INTRA"], payload["CURRENCY_SYMBOL"], payload["INTRA_VAT_PERC"])
         else:
           list_of_documents = print_watermark(list_of_documents, payload["LAST_USED_PROTOCOL"], payload["IS_INTRA"], "", "")
         return func.HttpResponse(
